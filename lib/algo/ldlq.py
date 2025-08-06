@@ -34,7 +34,7 @@ def LDLQ(Wr, L, cb, args, buf_cols=128, for_kernel=True):
 
     # quip
     prod_cache = torch.zeros(n, m, dtype=Wr_T.dtype, device=Wr_T.device)
-    for cur_col in tqdm(range(n // args.td_y, 0, -buf_size)):
+    for cur_col in range(n // args.td_y, 0, -buf_size):
         b_Wr_T = Wr_T[args.td_y * (cur_col - buf_size):args.td_y * cur_col]
         b_hatWr_T = hatWr_T[args.td_y * (cur_col - buf_size):args.td_y *
                             cur_col]

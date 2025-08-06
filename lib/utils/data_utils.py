@@ -4,6 +4,7 @@ import glog
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
 from lib import codebook
 
@@ -27,12 +28,12 @@ def sym_to_flat(A):
 
 def register_input_H_hook(module, save_pfx, device):
     n = module.in_features
-    H = torch.zeros(n, n, dtype=torch.float64, device=device)
+    H = torch.zeros(n, n, dtype=torch.float32, device=device)
     ct = 0
 
     def H_hook(module, x):
         nonlocal H, ct, n
-        x = x[0].reshape(-1, n).to(torch.float64)
+        x = x[0].reshape(-1, n).to(torch.float32)
         H.addmm_(x.T, x)
         ct += len(x)
 
@@ -189,7 +190,7 @@ def wrap_tokenizer(tokenizer, x, ctx_size, truncate=True):
     return tokenizer(x,
                      return_tensors='pt',
                      truncation=truncate,
-                     padding=True,
+                     padding='max_length',
                      max_length=ctx_size)
 
 
@@ -232,22 +233,36 @@ def sample_rp1t(tokenizer, size=128, ctx_size=2048, nproc=1):
     return devset
 
 
-def sample_rp1t_concat(tokenizer, size=128, ctx_size=2048, nproc=1):
+def sample_rp1t_concat(tokenizer, size=128, ctx_size=2048, nproc=1, rank=0):
     dataset = load_dataset('togethercomputer/RedPajama-Data-1T-Sample',
                            split='train')
     devset = torch.zeros((size, ctx_size), dtype=torch.int64)
     concat = []
-    p = mp.Pool(nproc)
-    while len(concat) < ctx_size * size:
-        seqs = [(tokenizer, dataset[torch.randint(len(dataset),
-                                                  (128, ))]['text'], -1, False)
+
+    assert nproc == 1, "nproc > 1 not supported"
+
+    # Use tqdm only if rank == 0, otherwise use a normal range
+    def progress_bar(iterable, total):
+        if rank == 0:
+            return tqdm(iterable, total=total, desc="Building concat")
+        else:
+            return iterable
+
+    # Since the loop is while-based, we simulate a progress bar by updating manually
+    last_print = 0
+    total_needed = ctx_size * size
+    while len(concat) < total_needed:
+        tokens = [wrap_tokenizer(tokenizer, dataset[torch.randint(len(dataset),
+                                                  (128, ))]['text'], ctx_size, True)
                 for _ in range(nproc)]
-        tokens = p.starmap(wrap_tokenizer, seqs)
         for i in range(len(tokens)):
             lens = tokens[i].attention_mask.sum(dim=-1)
             for j in range(len(tokens[i].input_ids)):
                 concat += tokens[i].input_ids[j][:lens[j]]
-        print(len(concat), ctx_size * size)
+        if rank == 0:
+            if len(concat) - last_print >= 10000 or len(concat) >= total_needed:
+                tqdm.write(f"{len(concat)} {total_needed}")
+                last_print = len(concat)
     concat = torch.tensor(concat)[:ctx_size * size]
     return concat.reshape(size, ctx_size).contiguous()
 

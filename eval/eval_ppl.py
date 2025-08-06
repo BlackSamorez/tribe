@@ -63,6 +63,7 @@ def main(args):
 
         ppl = torch.exp(torch.tensor(avg_loss)).item()
         glog.info(f'{dataset} perplexity: {ppl}')
+        print(f'<result>{dataset}, {ppl}</result>')
 
 
 if __name__ == '__main__':

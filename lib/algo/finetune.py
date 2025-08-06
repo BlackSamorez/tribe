@@ -28,6 +28,9 @@ def use_tf32():
 
 def finetune_decoder_layer(layer, name, device, train_dl, valid_dl, orig_dtype,
                            args):
+    if args.ft_epochs == 0:
+        return
+
     with use_tf32():
         layer = layer.to(device)
 
@@ -100,7 +103,10 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
         break
     mixed_layer = mixed_layer.float()
 
-    train_dl, valid_dl = utils.split_data(pre_orig_emb, orig_emb, args)
+    if args.ft_epochs == 0:
+        train_dl, valid_dl = None, None
+    else:
+        train_dl, valid_dl = utils.split_data(pre_orig_emb, orig_emb, args)
 
     has_kernel = utils.has_kernel(args.decode_mode, args.L, args.K, args.V,
                                   args.tlut_bits, args.td_x, args.td_y)
@@ -117,7 +123,7 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
         SV = (torch.randn(m, device=device).sign() + 1e-5).sign().to(dtype_)
 
         in_hess_path = f'{args.in_hess_path}/{idx}_{in_hess_name}.pt'
-        H_data = torch.load(in_hess_path, map_location=torch.device('cpu'))
+        H_data = torch.load(in_hess_path, map_location=torch.device('cpu'), weights_only=False)
         HR = utils.flat_to_sym(H_data['flatH'], H_data['n'])
         if 'mu' in H_data:
             mu = H_data['mu']
@@ -224,9 +230,9 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
 
         err = torch.trace(
             (Wr - hatWr) @ HRr @ (Wr - hatWr).T) / torch.trace(Wr @ HRr @ Wr.T)
-        print(
-            f'{idx}_{name} proxy err {err.item()} tr(WHW.T) {torch.trace(Wr @ HRr @ Wr.T)}'
-        )
+        # print(
+        #     f'{idx}_{name} proxy err {err.item()} tr(WHW.T) {torch.trace(Wr @ HRr @ Wr.T)}'
+        # )
         
         save_path = f'{args.save_path}/{idx}_{name}.pt'
 

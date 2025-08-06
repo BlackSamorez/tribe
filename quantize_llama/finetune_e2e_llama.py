@@ -6,8 +6,6 @@ import math
 import os
 import time
 
-from tqdm import tqdm
-
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 
 import glog

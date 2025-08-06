@@ -6,7 +6,6 @@ from functools import cache
 import numpy as np
 import torch
 from torch import nn
-from tqdm import tqdm
 
 from lib.codebook import kdict
 from lib.utils.kernel_check import has_kernel

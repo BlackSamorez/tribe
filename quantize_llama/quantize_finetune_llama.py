@@ -3,6 +3,7 @@ import os
 import time
 
 import glog
+from tqdm import tqdm
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 
@@ -85,7 +86,6 @@ def quantize_llama_decoder(layer, idx, cb, args, device, pre_orig_emb,
             quant_order.append(thing)
         else:
             attrgetter(thing[0])(layer).weight.requires_grad = False
-            print(f'skipping {idx}_{thing[1]}')
         
     finetune.quantize_finetune_decoder_layer(layer, quant_order, idx, cb, args,
                                              device, pre_orig_emb, orig_emb)
@@ -154,16 +154,25 @@ def main(args):
 
     cur_device = 0
     proc_list = [None for _ in range(nproc)]
+    
+    # Add progress bar for layer quantization
+    total_layers = len(model.model.layers)
+    progress_bar = tqdm(total=total_layers * 7, desc="Quantizing layers", unit="layer")
+    
     for i in range(len(model.model.layers)):
-        glog.info(f'layer {i} gpu {cur_device}')
+        # glog.info(f'layer {i} gpu {cur_device}')
         if proc_list[cur_device] is not None:
             proc_list[cur_device][0].join()
+            # Update progress bar when a layer completes
+            progress_bar.update(1)
             model.model.layers[proc_list[cur_device][1]] = None
             utils.clean()
             if cur_device == 0:
                 orig_emb_cache[0].copy_(orig_emb_cache[-1])
         if cur_device + 1 < nproc and proc_list[cur_device + 1] is not None:
             proc_list[cur_device + 1][0].join()
+            # Update progress bar when a layer completes
+            progress_bar.update(1)
         utils.clean()
         st = time.time()
         position_ids = position_ids.to(cur_device)
@@ -182,7 +191,7 @@ def main(args):
         position_ids = position_ids.cpu()
         attention_mask = attention_mask.cpu()
         utils.clean()
-        glog.info('computed original embedding for layer {} in {}s'.format(i, time.time() - st))
+        # glog.info('computed original embedding for layer {} in {}s'.format(i, time.time() - st))
 
         proc_list[cur_device] = (mp.Process(target=quantize_llama_decoder,
                                             args=(
@@ -200,8 +209,13 @@ def main(args):
 
         cur_device = (cur_device + 1) % nproc
 
+    # Wait for remaining processes and update progress
     for p in proc_list:
-        p[0].join()
+        if p is not None:
+            p[0].join()
+            progress_bar.update(1)
+    
+    progress_bar.close()
 
 
 if __name__ == '__main__':

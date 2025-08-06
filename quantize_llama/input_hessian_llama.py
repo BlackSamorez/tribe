@@ -4,7 +4,7 @@ import os
 import random
 from copy import deepcopy
 
-from tqdm import tqdm
+from tqdm import tqdm, trange
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 
@@ -17,6 +17,8 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
 from transformers.modeling_attn_mask_utils import \
     _prepare_4d_causal_attention_mask
 
+import sys
+sys.path.append('..')
 from lib import utils
 
 parser = argparse.ArgumentParser()
@@ -32,27 +34,29 @@ parser.add_argument('--sample_proc', default=32, type=int)
 
 
 def main(args):
-    print("loading model...")
-    print("loaded model!")
     gpu_id = int(os.environ["LOCAL_RANK"])
     tokenizer = AutoTokenizer.from_pretrained(args.base_model, use_fast=False)
     tokenizer.pad_token = tokenizer.eos_token
 
-    print("loading dataset...")
     devset = utils.sample_rp1t_concat(tokenizer,
                                       args.devset_size,
                                       args.ctx_size,
-                                      nproc=args.sample_proc)
+                                      nproc=args.sample_proc,
+                                      rank=gpu_id)
     devset = torch.split(devset, args.large_batch_size)
-    for lbi in range(len(devset)):
+
+    # Only use tqdm if rank (gpu_id) == 0
+    if gpu_id == 0:
+        outer_iter = trange(len(devset), desc='Processing splits')
+    else:
+        outer_iter = range(len(devset))
+
+    for lbi in outer_iter:
         model = AutoModelForCausalLM.from_pretrained(args.base_model,
                                                      torch_dtype="auto",
                                                      low_cpu_mem_usage=True)
-        print(f'processing split {lbi}')
         dev_emb = model.model.embed_tokens(devset[lbi].view(
             -1, args.batch_size, args.ctx_size))
-
-        print("loaded dataset!")
 
         position_ids = torch.arange(args.ctx_size, dtype=torch.int64)[None, :] + \
             torch.zeros(args.batch_size, args.ctx_size, dtype=torch.int64)
@@ -71,7 +75,8 @@ def main(args):
 
         transformer_layer_index = 0
         while len(model.model.layers) > 0:
-            print(gpu_id, 1)
+            if gpu_id == 0:
+                print(f"Layers left: {len(model.model.layers)}")
             layer = model.model.layers[0]
             layer = layer.cuda()
             save_pfx = f'/dev/shm/{transformer_layer_index}'
@@ -83,7 +88,12 @@ def main(args):
                                                   f'{save_pfx}_up', gpu_id)
             done_down = utils.register_input_H_hook(layer.mlp.down_proj,
                                                     f'{save_pfx}_down', gpu_id)
-            for di in range(len(dev_emb)):
+            # Only use tqdm for inner loop if rank == 0
+            if gpu_id == 0:
+                inner_iter = trange(len(dev_emb), leave=False, desc='Layer forward pass')
+            else:
+                inner_iter = range(len(dev_emb))
+            for di in inner_iter:
                 tmp_input = dev_emb[di].cuda()
                 dev_emb[di] = layer(dev_emb[di].cuda(),
                                     position_ids=position_ids,
@@ -119,7 +129,6 @@ def main(args):
                     gi = 0
                     gi_path = f"/dev/shm/{transformer_layer_index}_{key}_{gi}.pt"
                     while os.path.exists(gi_path):
-                        print(gi_path)
                         d2 = torch.load(gi_path,
                                         map_location=torch.device('cpu'))
                         if data is not None:
@@ -141,8 +150,6 @@ def main(args):
                     utils.clean()
 
             dist.barrier()
-
-            print(f"done processing layer {transformer_layer_index}")
             transformer_layer_index += 1
 
         del position_ids, attention_mask
@@ -162,6 +169,7 @@ if __name__ == "__main__":
     dist.init_process_group(backend="nccl")
     gpu_id = int(os.environ["LOCAL_RANK"])
     device = f"cuda:{gpu_id}"
+    args.devset_size = args.devset_size // dist.get_world_size()
     torch.cuda.set_device(device)
     torch.manual_seed(gpu_id)
     random.seed(gpu_id)

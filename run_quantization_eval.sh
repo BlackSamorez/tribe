@@ -14,7 +14,9 @@ run_pipeline() {
     python -m quantize_llama.quantize_finetune_llama \
         --base_model meta-llama/Llama-3.1-8B \
         --in_hess_path ~/hessians/Llama-3.1-8B \
-        --save_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst \
+        --save_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-noht \
+        --group_size 128 \
+        --skip_hadamard \
         --L 16 --K $bits --V 1 --tlut_bits 0 --decode_mode 3inst \
         --ft_epochs 0
     
@@ -26,8 +28,8 @@ run_pipeline() {
     # Step 2: Convert to HF format
     echo "Step 2: Converting to HuggingFace format..."
     python -m quantize_llama.hfize_llama \
-        --quantized_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst \
-        --hf_output_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-hf
+        --quantized_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-noht \
+        --hf_output_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-noht-hf
     
     if [ $? -ne 0 ]; then
         echo "Error: HF conversion failed for ${bits}-bit"
@@ -37,7 +39,7 @@ run_pipeline() {
     # Step 3: Evaluate and capture results
     echo "Step 3: Evaluating perplexity..."
     eval_output=$(python -m eval.eval_ppl \
-        --hf_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-hf \
+        --hf_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-3inst-noht-hf \
         --manifest 2>&1)
     
     if [ $? -ne 0 ]; then
@@ -64,6 +66,9 @@ run_pipeline() {
 echo "Starting quantization and evaluation pipeline..."
 echo "Results will be saved to: $RESULTS_FILE"
 echo ""
+
+# Run for 2-bit
+run_pipeline 2
 
 # Run for 3-bit
 run_pipeline 3

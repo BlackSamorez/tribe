@@ -5,8 +5,7 @@ import torch
 import torch.nn as nn
 
 from lib.codebook import bitshift
-from lib.utils import (clean, dtype_from_str, get_hadK, has_kernel,
-                       matmul_hadU_cuda)
+from lib.utils import (clean, has_kernel)
 
 
 class QuantizedLinear(nn.Module):
@@ -23,6 +22,8 @@ class QuantizedLinear(nn.Module):
         tlut_bits,  # tunable LUT bits
         decode_mode,
         bias=False,
+        group_size=128,
+        skip_hadamard=False,
         dtype=torch.float16,
         mode='eval',
         grad_ckpt=False,
@@ -38,9 +39,8 @@ class QuantizedLinear(nn.Module):
         self.V = V
         self.tlut_bits = tlut_bits
         self.decode_mode = decode_mode
-        self.register_buffer('rcp', torch.tensor(0))
-        # TP rank, not used unless rcp != 0
-        self.register_buffer('tp_rank', torch.tensor(8))
+        self.group_size = group_size
+        self.skip_hadamard = skip_hadamard
         self.dtype = dtype
         # packed into int16
         self.register_buffer(
@@ -62,19 +62,10 @@ class QuantizedLinear(nn.Module):
         else:
             self.bias = None
 
-        self.register_buffer("SU", torch.ones(in_features, dtype=self.dtype))
-        self.register_buffer("SV", torch.ones(out_features,
-                                              dtype=torch.float32))
+        self.register_buffer("scales", torch.ones((out_features * in_features) // group_size, 1, dtype=self.dtype))
 
         self.built_codebook_class = False
         self.built_graph = False
-
-        had_left, K_left = get_hadK(in_features)
-        had_right, K_right = get_hadK(out_features)
-        self.register_buffer('had_left', had_left, persistent=False)
-        self.register_buffer('had_right', had_right, persistent=False)
-        self.K_left = K_left
-        self.K_right = K_right
         self.mode = mode
         self.grad_ckpt = grad_ckpt
         self.has_kernel = has_kernel(decode_mode, L, K, V, tlut_bits, td_x,
@@ -100,13 +91,11 @@ class QuantizedLinear(nn.Module):
                 self.V,
                 self.tlut_bits,
                 self.decode_mode,
+                self.group_size,
+                self.skip_hadamard,
                 dtype=self.dtype,
                 tlut=self.tlut,
                 has_kernel=self.has_kernel)
-
-            rcp = self.rcp.item()
-            del self.rcp
-            self.rcp = rcp
 
             if self.mode == 'eval':
                 pass
@@ -118,33 +107,29 @@ class QuantizedLinear(nn.Module):
                     self.trellis = unpacked_trellis
                     clean()
             elif self.mode == 'train-fixW':
-                self.codebook_class.cache_hatW(self.trellis, self.had_left,
-                                               self.had_right, self.K_left,
-                                               self.K_right, len(self.SV),
-                                               len(self.SU), self.rcp,
-                                               self.tp_rank)
+                self.codebook_class.cache_hatW(self.trellis, self.scales, self.out_features, self.in_features)
                 self.trellis = self.trellis.cpu()
-                del self.had_left, self.had_right, self.K_left, self.K_right
                 clean()
-                self.had_left = None
-                self.had_right = None
-                self.K_left = None
-                self.K_right = None
             else:
                 raise Exception
 
             self.built_codebook_class = True
 
+        # print(
+        #     "quantized_linear.py:116\n"
+        #     f"\tinput: {input.shape}\n"
+        #     f"\tself.trellis: {self.trellis.shape}\n"
+        #     f"\tself.scales: {self.scales.shape}\n"
+        #     f"\tself.out_features: {self.out_features}\n"
+        #     f"\tself.in_features: {self.in_features}\n"
+        #     f"\tself.mode: {self.mode}\n"
+        # )
+        
         result = self.codebook_class(input,
                                      self.trellis,
-                                     self.SU,
-                                     self.SV,
-                                     self.had_left,
-                                     self.had_right,
-                                     self.K_left,
-                                     self.K_right,
-                                     self.rcp,
-                                     self.tp_rank,
+                                     self.scales,
+                                     self.out_features,
+                                     self.in_features,
                                      mode=self.mode) + 0
         if self.bias is not None:
             return result + self.bias

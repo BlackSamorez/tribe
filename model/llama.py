@@ -309,6 +309,8 @@ class LlamaMLP(nn.Module):
         K = config.quip_params['K']
         V = config.quip_params['V']
         tlut_bits = config.quip_params['tlut_bits']
+        group_size = config.quip_params['group_size']
+        skip_hadamard = config.quip_params['skip_hadamard']
         decode_mode = config.quip_params['decode_mode']
 
         if config.quip_params.get('skip_list', None) is None:
@@ -324,6 +326,8 @@ class LlamaMLP(nn.Module):
                                              V,
                                              tlut_bits,
                                              decode_mode,
+                                             group_size=group_size,
+                                             skip_hadamard=skip_hadamard,
                                              dtype=config.torch_dtype,
                                              bias=False)
         else:
@@ -342,6 +346,8 @@ class LlamaMLP(nn.Module):
                                            V,
                                            tlut_bits,
                                            decode_mode,
+                                           group_size=group_size,
+                                           skip_hadamard=skip_hadamard,
                                            dtype=config.torch_dtype,
                                            bias=False)
         else:
@@ -360,6 +366,8 @@ class LlamaMLP(nn.Module):
                                              V,
                                              tlut_bits,
                                              decode_mode,
+                                             group_size=group_size,
+                                             skip_hadamard=skip_hadamard,
                                              dtype=config.torch_dtype,
                                              bias=False)
         else:
@@ -450,6 +458,8 @@ class LlamaAttention(nn.Module):
         V = config.quip_params['V']
         tlut_bits = config.quip_params['tlut_bits']
         decode_mode = config.quip_params['decode_mode']
+        group_size = config.quip_params['group_size']
+        skip_hadamard = config.quip_params['skip_hadamard']
 
         if config.quip_params.get('skip_list', None) is None:
             config.quip_params['skip_list'] = []
@@ -465,6 +475,8 @@ class LlamaAttention(nn.Module):
                                           V,
                                           tlut_bits,
                                           decode_mode,
+                                          group_size=group_size,
+                                          skip_hadamard=skip_hadamard,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -483,6 +495,8 @@ class LlamaAttention(nn.Module):
                                           V,
                                           tlut_bits,
                                           decode_mode,
+                                          group_size=group_size,
+                                          skip_hadamard=skip_hadamard,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -501,6 +515,8 @@ class LlamaAttention(nn.Module):
                                           V,
                                           tlut_bits,
                                           decode_mode,
+                                          group_size=group_size,
+                                          skip_hadamard=skip_hadamard,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -519,6 +535,8 @@ class LlamaAttention(nn.Module):
                                           V,
                                           tlut_bits,
                                           decode_mode,
+                                          group_size=group_size,
+                                          skip_hadamard=skip_hadamard,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:

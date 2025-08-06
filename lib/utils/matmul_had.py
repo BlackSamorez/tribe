@@ -89,6 +89,12 @@ def matmul_hadUt(X):
     return matmul_hadU(X, transpose=True)
 
 
+def grouped_hadamard(X, group_size, skip_hadamard=False):
+    if skip_hadamard:
+        return X
+    return torch.ops.hadamard.hadamard(X.reshape(-1, group_size), group_size**-0.5).reshape_as(X)
+
+
 torch.library.define("hadamard::hadamard", "(Tensor x, float scale) -> Tensor")
 
 
@@ -102,7 +108,7 @@ def hadamard(x: torch.Tensor, scale: float) -> torch.Tensor:
     return fast_hadamard_transform.hadamard_transform(x, scale)
 
 
-def matmul_hadU_cuda(X, hadK, K, transpose=False):
+def matmul_hadU_cuda(X, hadK, K, transpose=False, group_size=None):
     n = X.shape[-1]
     if K == 1:
         return torch.ops.hadamard.hadamard(X.contiguous(), n**(-0.5))
@@ -115,8 +121,8 @@ def matmul_hadU_cuda(X, hadK, K, transpose=False):
     return input.to(X.device).to(X.dtype).reshape(X.shape)
 
 
-def matmul_hadUt_cuda(X, hadK, K):
-    return matmul_hadU_cuda(X, hadK, K, transpose=True)
+def matmul_hadUt_cuda(X, hadK, K, group_size=None):
+    return matmul_hadU_cuda(X, hadK, K, transpose=True, group_size=group_size)
 
 
 def is_pow2(n):

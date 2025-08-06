@@ -51,9 +51,9 @@ parser.add_argument('--V', default=2, type=int)
 parser.add_argument('--tlut_bits', default=0, type=int)
 parser.add_argument('--decode_mode', default='lut', type=str)
 parser.add_argument('--ft_train_lut', action='store_true')
-parser.add_argument('--split_for_tp', action='store_true')
-parser.add_argument('--tp_rank', default=8, type=int)
 parser.add_argument('--skip_list', default=None, type=str)
+parser.add_argument('--group_size', default=128, type=int)
+parser.add_argument('--skip_hadamard', action='store_true')
 
 
 def check_exist(idx, args):
@@ -66,7 +66,7 @@ def check_exist(idx, args):
 
 
 def quantize_llama_decoder(layer, idx, cb, args, device, pre_orig_emb,
-                           orig_emb, model_config, skip_list):
+                           orig_emb, model_config, skip_list, group_size, skip_hadamard):
     if check_exist(idx, args):
         return
 
@@ -75,20 +75,20 @@ def quantize_llama_decoder(layer, idx, cb, args, device, pre_orig_emb,
         
     # layer name, save_name, input hessian file, output hessian file
     quant_order = []
-    for thing in [('self_attn.v_proj', 'v', 'qkv', 'v', 'col'),
-                  ('self_attn.q_proj', 'q', 'qkv', 'q', 'col'),
-                  ('self_attn.k_proj', 'k', 'qkv', 'k', 'col'),
-                  ('self_attn.o_proj', 'o', 'o', 'o', 'row'),
-                  ('mlp.up_proj', 'up', 'up', 'up', 'col'),
-                  ('mlp.gate_proj', 'gate', 'up', 'gate', 'col'),
-                  ('mlp.down_proj', 'down', 'down', 'down', 'row')]:
+    for thing in [('self_attn.v_proj', 'v', 'qkv', 'v'),
+                  ('self_attn.q_proj', 'q', 'qkv', 'q'),
+                  ('self_attn.k_proj', 'k', 'qkv', 'k'),
+                  ('self_attn.o_proj', 'o', 'o', 'o'),
+                  ('mlp.up_proj', 'up', 'up', 'up'),
+                  ('mlp.gate_proj', 'gate', 'up', 'gate'),
+                  ('mlp.down_proj', 'down', 'down', 'down')]:
         if f'{idx}_{thing[1]}' not in skip_list:
             quant_order.append(thing)
         else:
             attrgetter(thing[0])(layer).weight.requires_grad = False
         
     finetune.quantize_finetune_decoder_layer(layer, quant_order, idx, cb, args,
-                                             device, pre_orig_emb, orig_emb)
+                                             device, pre_orig_emb, orig_emb, group_size, skip_hadamard)
     torch.save(
         {
             'input_layernorm': layer.input_layernorm.weight,
@@ -123,8 +123,9 @@ def main(args):
         'decode_mode': args.decode_mode,
         'td_x': args.td_x,
         'td_y': args.td_y,
-        'split_for_tp': args.split_for_tp,
         'skip_list': args.skip_list,
+        'group_size': args.group_size,
+        'skip_hadamard': args.skip_hadamard,
     }
     all_config['model_config'].update({'quip_params': quip_params})
     torch.save(all_config, os.path.join(args.save_path, 'config.pt'))
@@ -157,7 +158,7 @@ def main(args):
     
     # Add progress bar for layer quantization
     total_layers = len(model.model.layers)
-    progress_bar = tqdm(total=total_layers * 7, desc="Quantizing layers", unit="layer")
+    progress_bar = tqdm(total=total_layers, desc="Quantizing layers", unit="layer")
     
     for i in range(len(model.model.layers)):
         # glog.info(f'layer {i} gpu {cur_device}')
@@ -171,8 +172,6 @@ def main(args):
                 orig_emb_cache[0].copy_(orig_emb_cache[-1])
         if cur_device + 1 < nproc and proc_list[cur_device + 1] is not None:
             proc_list[cur_device + 1][0].join()
-            # Update progress bar when a layer completes
-            progress_bar.update(1)
         utils.clean()
         st = time.time()
         position_ids = position_ids.to(cur_device)
@@ -203,7 +202,9 @@ def main(args):
                                                 orig_emb_cache[cur_device],
                                                 orig_emb_cache[cur_device + 1],
                                                 all_config['model_config'],
-                                                args.skip_list
+                                                args.skip_list,
+                                                args.group_size,
+                                                args.skip_hadamard,
                                             )), i)
         proc_list[cur_device][0].start()
 

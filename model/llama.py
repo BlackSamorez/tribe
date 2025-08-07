@@ -312,6 +312,7 @@ class LlamaMLP(nn.Module):
         group_size = config.quip_params['group_size']
         skip_hadamard = config.quip_params['skip_hadamard']
         decode_mode = config.quip_params['decode_mode']
+        aquant = config.quip_params.get('aquant', None)
 
         if config.quip_params.get('skip_list', None) is None:
             config.quip_params['skip_list'] = []
@@ -328,6 +329,7 @@ class LlamaMLP(nn.Module):
                                              decode_mode,
                                              group_size=group_size,
                                              skip_hadamard=skip_hadamard,
+                                             aquant=aquant,
                                              dtype=config.torch_dtype,
                                              bias=False)
         else:
@@ -348,6 +350,7 @@ class LlamaMLP(nn.Module):
                                            decode_mode,
                                            group_size=group_size,
                                            skip_hadamard=skip_hadamard,
+                                           aquant=aquant,
                                            dtype=config.torch_dtype,
                                            bias=False)
         else:
@@ -368,6 +371,7 @@ class LlamaMLP(nn.Module):
                                              decode_mode,
                                              group_size=group_size,
                                              skip_hadamard=skip_hadamard,
+                                             aquant=aquant,
                                              dtype=config.torch_dtype,
                                              bias=False)
         else:
@@ -460,6 +464,7 @@ class LlamaAttention(nn.Module):
         decode_mode = config.quip_params['decode_mode']
         group_size = config.quip_params['group_size']
         skip_hadamard = config.quip_params['skip_hadamard']
+        aquant = config.quip_params.get('aquant', None)
 
         if config.quip_params.get('skip_list', None) is None:
             config.quip_params['skip_list'] = []
@@ -477,6 +482,7 @@ class LlamaAttention(nn.Module):
                                           decode_mode,
                                           group_size=group_size,
                                           skip_hadamard=skip_hadamard,
+                                          aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -497,6 +503,7 @@ class LlamaAttention(nn.Module):
                                           decode_mode,
                                           group_size=group_size,
                                           skip_hadamard=skip_hadamard,
+                                          aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -517,6 +524,7 @@ class LlamaAttention(nn.Module):
                                           decode_mode,
                                           group_size=group_size,
                                           skip_hadamard=skip_hadamard,
+                                          aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -537,6 +545,7 @@ class LlamaAttention(nn.Module):
                                           decode_mode,
                                           group_size=group_size,
                                           skip_hadamard=skip_hadamard,
+                                          aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:

@@ -21,6 +21,7 @@ parser.add_argument('--hf_path', default='hfized/quantized_hada_70b', type=str)
 parser.add_argument('--seqlen', default=4096, type=int)
 parser.add_argument('--manifest', action='store_true')
 parser.add_argument('--max_mem_ratio', default=0.7, type=float)
+parser.add_argument('--overwrite_aquant', default=None, type=str, choices=[None, 'fp4_absmax', 'fp4_quest', 'fp8'])
 
 
 def main(args):
@@ -33,6 +34,8 @@ def main(args):
         for module in model.modules():
             if isinstance(module, QuantizedLinear):
                 module.mode = 'train-fixW'
+                if args.overwrite_aquant is not None:
+                    module.aquant = args.overwrite_aquant
 
     for dataset in datasets:
         input_tok = gptq_data_utils.get_test_tokens(dataset,

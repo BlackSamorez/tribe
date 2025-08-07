@@ -24,6 +24,7 @@ class QuantizedLinear(nn.Module):
         bias=False,
         group_size=128,
         skip_hadamard=False,
+        aquant=None,
         dtype=torch.float16,
         mode='eval',
         grad_ckpt=False,
@@ -41,6 +42,7 @@ class QuantizedLinear(nn.Module):
         self.decode_mode = decode_mode
         self.group_size = group_size
         self.skip_hadamard = skip_hadamard
+        self.aquant = aquant
         self.dtype = dtype
         # packed into int16
         self.register_buffer(
@@ -93,6 +95,7 @@ class QuantizedLinear(nn.Module):
                 self.decode_mode,
                 self.group_size,
                 self.skip_hadamard,
+                aquant=self.aquant,
                 dtype=self.dtype,
                 tlut=self.tlut,
                 has_kernel=self.has_kernel)

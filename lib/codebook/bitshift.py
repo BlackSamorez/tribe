@@ -63,6 +63,44 @@ def decode_3inst_fp8(x):
     return decode_3inst(x).to(torch.float8_e4m3fn).float()
 
 
+FP4_LEVELS = torch.tensor([
+    -2.92247856,
+    -1.94831904,
+    -1.46123928,
+    -0.97415952,
+    -0.73061964,
+    -0.48707976,
+    -0.24353988,
+    0.0,
+    0.0,
+    0.24353988,
+    0.48707976,
+    0.73061964,
+    0.97415952,
+    1.46123928,
+    1.94831904,
+    2.92247856,
+], device="cuda")
+
+
+def rtn_fp4(x):
+    grid = FP4_LEVELS.to(x.device)
+    inds = torch.bucketize(x, grid)
+
+    lo = torch.clamp(inds - 1, min=0, max=15)
+    hi = torch.clamp(inds,     min=0, max=15)
+
+    g_lo = grid[lo]
+    g_hi = grid[hi]
+
+    pick_hi = (g_hi - x) <= (x - g_lo)
+    return torch.where(pick_hi, g_hi, g_lo)
+
+
+def decode_3inst_fp4(x):
+    return rtn_fp4(decode_3inst(x))
+
+
 def quantlut(tlut, L, nbits):
     with torch.no_grad():
         lut = torch.arange(1 << L)
@@ -127,6 +165,10 @@ class bitshift_codebook(nn.Module):
             assert V == 1
             self.register_buffer('lut',
                                  decode_3inst_fp8(torch.arange(2**L)).unsqueeze(0))
+        elif decode_mode == '3inst_fp4':
+            assert V == 1
+            self.register_buffer('lut',
+                                 decode_3inst_fp4(torch.arange(2**L)).unsqueeze(0))
         elif decode_mode == 'quantlut':
             if tlut is None:
                 assert tlut_bits > 0
@@ -372,6 +414,7 @@ class BitshiftLinear(nn.Module):
                  decode_mode,
                  group_size,
                  skip_hadamard,
+                 aquant=None,
                  dtype=torch.float16,
                  tlut=None,
                  has_kernel=False):
@@ -382,6 +425,7 @@ class BitshiftLinear(nn.Module):
         self.cb = bitshift_codebook(L, K, V, tlut_bits, decode_mode, tlut=tlut)
         self.group_size = group_size
         self.skip_hadamard = skip_hadamard
+        self.aquant = aquant
         self.internal_dtype = dtype
         self.has_kernel = False # TODO: add kernel
 
@@ -425,6 +469,32 @@ class BitshiftLinear(nn.Module):
 
         x = grouped_hadamard(x, self.group_size, self.skip_hadamard)
         
+        if self.aquant is None:
+            pass
+        elif self.aquant == 'fp8':
+            x = x.reshape(-1, self.group_size)
+            x_scales = x.abs().max(dim=-1, keepdim=True).values
+            x /= x_scales
+            x = x.to(torch.float8_e4m3fn).float()
+            x *= x_scales
+            x = x.reshape(-1, n)
+        elif self.aquant == 'fp4_absmax':
+            x = x.reshape(-1, self.group_size)
+            x_scales = x.abs().max(dim=-1, keepdim=True).values / FP4_LEVELS.max()
+            x /= x_scales
+            x = rtn_fp4(x)
+            x *= x_scales
+            x = x.reshape(-1, n)
+        elif self.aquant == 'fp4_quest':
+            x = x.reshape(-1, self.group_size)
+            x_scales = x.pow(2).mean(dim=-1, keepdim=True).sqrt()
+            x /= x_scales
+            x = rtn_fp4(x)
+            x *= x_scales
+            x = x.reshape(-1, n)
+        else:
+            raise ValueError(f"Invalid aquant: {self.aquant}")
+
         if mode == 'train-fixW':
             x = x.to(self.internal_dtype) @ self.hatW.T
             return x.view(*input.shape[:-1], m).to(input.dtype)

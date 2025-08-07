@@ -207,6 +207,7 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             args.decode_mode,
             mode='train-recons' if args.ft_train_lut else 'train-fixW',
             group_size=group_size,
+            aquant=args.aquant,
             dtype=orig_dtype,
             grad_ckpt=args.ft_grad_ckpt)
         q_linear.trellis.copy_(packed)

@@ -54,6 +54,7 @@ parser.add_argument('--ft_train_lut', action='store_true')
 parser.add_argument('--skip_list', default=None, type=str)
 parser.add_argument('--group_size', default=128, type=int)
 parser.add_argument('--skip_hadamard', action='store_true')
+parser.add_argument('--aquant', default=None, type=str, choices=[None, 'fp8'])
 
 
 def check_exist(idx, args):
@@ -126,6 +127,7 @@ def main(args):
         'skip_list': args.skip_list,
         'group_size': args.group_size,
         'skip_hadamard': args.skip_hadamard,
+        'aquant': args.aquant,
     }
     all_config['model_config'].update({'quip_params': quip_params})
     torch.save(all_config, os.path.join(args.save_path, 'config.pt'))

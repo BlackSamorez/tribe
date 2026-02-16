@@ -37,9 +37,10 @@ def rtn_fp4(x):
     return torch.where(pick_hi, g_hi, g_lo)
 
 
-def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, skip_hadamard: bool):
+@torch.compile(fullgraph=True, dynamic=False)
+def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard_size: int):
     orig_shape = x.shape
-    x = grouped_hadamard(x, group_size, skip_hadamard)
+    x = grouped_hadamard(x, hadamard_size)
         
     if aquant is None:
         pass

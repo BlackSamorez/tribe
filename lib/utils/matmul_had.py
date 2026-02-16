@@ -89,10 +89,10 @@ def matmul_hadUt(X):
     return matmul_hadU(X, transpose=True)
 
 
-def grouped_hadamard(X, group_size, skip_hadamard=False):
-    if skip_hadamard:
+def grouped_hadamard(X, hadamard_size):
+    if hadamard_size == 1:
         return X
-    return torch.ops.hadamard.hadamard(X.reshape(-1, group_size), group_size**-0.5).reshape_as(X)
+    return torch.ops.hadamard.hadamard(X.reshape(-1, hadamard_size), hadamard_size**-0.5).reshape_as(X)
 
 
 torch.library.define("hadamard::hadamard", "(Tensor x, float scale) -> Tensor")

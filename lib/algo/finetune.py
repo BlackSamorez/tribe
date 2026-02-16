@@ -91,7 +91,7 @@ def finetune_decoder_layer(layer, name, device, train_dl, valid_dl, orig_dtype,
 
 
 def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
-                                    device, pre_orig_emb, orig_emb, group_size, skip_hadamard):
+                                    device, pre_orig_emb, orig_emb, group_size, hadamard_size):
     torch.manual_seed(idx)
     torch.set_num_threads(args.num_cpu_threads)
     torch.set_grad_enabled(False)
@@ -130,13 +130,12 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
 
         HR = utils.regularize_H(HR, args.sigma_reg)
 
-        Wr = utils.grouped_hadamard(W.to(device), group_size, skip_hadamard)
+        Wr = utils.grouped_hadamard(W.to(device), hadamard_size)
         HRr = utils.grouped_hadamard(
             utils.grouped_hadamard(
-                HR.to(device).reshape(HR.shape[0] // group_size, group_size, HR.shape[1] // group_size, group_size), group_size, skip_hadamard
+                HR.to(device).reshape(HR.shape[0] // hadamard_size, hadamard_size, HR.shape[1] // hadamard_size, hadamard_size), hadamard_size
             ).permute(2, 3, 0, 1),
-            group_size,
-            skip_hadamard,
+            hadamard_size,
         ).permute(2, 3, 0, 1).reshape_as(HR)
         
         Wscale = Wr.reshape(-1, group_size).square().mean(dim=-1, keepdim=True).sqrt() / (

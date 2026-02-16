@@ -413,7 +413,7 @@ class BitshiftLinear(nn.Module):
                  tlut_bits,
                  decode_mode,
                  group_size,
-                 skip_hadamard,
+                 hadamard_size,
                  aquant=None,
                  dtype=torch.float16,
                  tlut=None,
@@ -424,7 +424,7 @@ class BitshiftLinear(nn.Module):
         self.V = V
         self.cb = bitshift_codebook(L, K, V, tlut_bits, decode_mode, tlut=tlut)
         self.group_size = group_size
-        self.skip_hadamard = skip_hadamard
+        self.hadamard_size = hadamard_size
         self.aquant = aquant
         self.internal_dtype = dtype
         self.has_kernel = False # TODO: add kernel
@@ -467,7 +467,7 @@ class BitshiftLinear(nn.Module):
 
         bs = x.shape[0]
 
-        x = quantize_activations(x, self.aquant, self.group_size, self.skip_hadamard)
+        x = quantize_activations(x, self.aquant, self.group_size, self.hadamard_size)
 
         if mode == 'train-fixW':
             x = x.to(self.internal_dtype) @ self.hatW.T

@@ -27,7 +27,7 @@ def sym_to_flat(A):
     return A[idxs.unbind()]
 
 
-def register_input_H_hook(module, save_pfx, device, aquant, group_size, skip_hadamard):
+def register_input_H_hook(module, save_pfx, device, aquant, group_size, hadamard_size):
     n = module.in_features
     H = torch.zeros(n, n, dtype=torch.float32, device=device)
     Hhat = torch.zeros(n, n, dtype=torch.float32, device=device)
@@ -35,9 +35,9 @@ def register_input_H_hook(module, save_pfx, device, aquant, group_size, skip_had
     ct = 0
 
     def H_hook(module, x):
-        nonlocal H, Hhat, hatHhat, ct, n, aquant, group_size, skip_hadamard
+        nonlocal H, Hhat, hatHhat, ct, n, aquant, group_size, hadamard_size
         x = x[0].reshape(-1, n)
-        xq = quantize_activations(x, aquant, group_size, skip_hadamard).to(torch.float32)
+        xq = quantize_activations(x, aquant, group_size, hadamard_size).to(torch.float32)
         x = x.to(torch.float32)
         
         H.addmm_(x.T, x)
@@ -49,12 +49,12 @@ def register_input_H_hook(module, save_pfx, device, aquant, group_size, skip_had
     hook = module.register_forward_pre_hook(H_hook)
 
     def done():
-        nonlocal H, Hhat, hatHhat, ct, hook, aquant, group_size, skip_hadamard
+        nonlocal H, Hhat, hatHhat, ct, hook, aquant, group_size, hadamard_size
         save_path = f"{save_pfx}_{device}.pt"
         torch.save({
             'H': H, 'Hhat': Hhat, 'hatHhat': hatHhat,
             'n': H.shape[0], 'ct': ct,
-            'aquant': aquant, 'group_size': group_size, 'skip_hadamard': skip_hadamard,
+            'aquant': aquant, 'group_size': group_size, 'hadamard_size': hadamard_size,
         }, save_path)
         del H, Hhat, hatHhat, ct
         hook.remove()

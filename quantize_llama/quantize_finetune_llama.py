@@ -53,8 +53,8 @@ parser.add_argument('--decode_mode', default='lut', type=str)
 parser.add_argument('--ft_train_lut', action='store_true')
 parser.add_argument('--skip_list', default=None, type=str)
 parser.add_argument('--group_size', default=128, type=int)
-parser.add_argument('--skip_hadamard', action='store_true')
-parser.add_argument('--aquant', default=None, type=str, choices=[None, 'fp8'])
+parser.add_argument('--hadamard_size', default=None, type=int)
+parser.add_argument('--aquant', default=None, type=str, choices=[None, 'fp8', 'fp4_quest', 'fp4_absmax'])
 
 
 def check_exist(idx, args):
@@ -67,7 +67,7 @@ def check_exist(idx, args):
 
 
 def quantize_llama_decoder(layer, idx, cb, args, device, pre_orig_emb,
-                           orig_emb, model_config, skip_list, group_size, skip_hadamard):
+                           orig_emb, model_config, skip_list, group_size, hadamard_size):
     if check_exist(idx, args):
         return
 
@@ -89,7 +89,7 @@ def quantize_llama_decoder(layer, idx, cb, args, device, pre_orig_emb,
             attrgetter(thing[0])(layer).weight.requires_grad = False
         
     finetune.quantize_finetune_decoder_layer(layer, quant_order, idx, cb, args,
-                                             device, pre_orig_emb, orig_emb, group_size, skip_hadamard)
+                                             device, pre_orig_emb, orig_emb, group_size, hadamard_size)
     torch.save(
         {
             'input_layernorm': layer.input_layernorm.weight,
@@ -126,7 +126,7 @@ def main(args):
         'td_y': args.td_y,
         'skip_list': args.skip_list,
         'group_size': args.group_size,
-        'skip_hadamard': args.skip_hadamard,
+        'hadamard_size': args.hadamard_size,
         'aquant': args.aquant,
     }
     all_config['model_config'].update({'quip_params': quip_params})
@@ -206,7 +206,7 @@ def main(args):
                                                 all_config['model_config'],
                                                 args.skip_list,
                                                 args.group_size,
-                                                args.skip_hadamard,
+                                                args.hadamard_size,
                                             )), i)
         proc_list[cur_device][0].start()
 
@@ -226,6 +226,8 @@ if __name__ == '__main__':
     mp.set_start_method('spawn')
     mp.set_sharing_strategy('file_system')
     args = parser.parse_args()
+    if args.hadamard_size is None:
+        args.hadamard_size = args.group_size
     torch.manual_seed(args.seed)
     os.makedirs(args.save_path, exist_ok=True)
     main(args)

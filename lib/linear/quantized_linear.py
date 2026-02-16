@@ -1,6 +1,7 @@
 import math
 import time
 
+from lib.utils.matmul_had import hadamard
 import torch
 import torch.nn as nn
 
@@ -23,13 +24,16 @@ class QuantizedLinear(nn.Module):
         decode_mode,
         bias=False,
         group_size=128,
-        skip_hadamard=False,
+        hadamard_size=None,
         aquant=None,
         dtype=torch.float16,
         mode='eval',
         grad_ckpt=False,
     ):
         super().__init__()
+        
+        if hadamard_size is None:
+            hadamard_size = group_size
 
         self.in_features = in_features
         self.out_features = out_features
@@ -41,7 +45,7 @@ class QuantizedLinear(nn.Module):
         self.tlut_bits = tlut_bits
         self.decode_mode = decode_mode
         self.group_size = group_size
-        self.skip_hadamard = skip_hadamard
+        self.hadamard_size = hadamard_size
         self.aquant = aquant
         self.dtype = dtype
         # packed into int16
@@ -94,7 +98,7 @@ class QuantizedLinear(nn.Module):
                 self.tlut_bits,
                 self.decode_mode,
                 self.group_size,
-                self.skip_hadamard,
+                self.hadamard_size,
                 aquant=self.aquant,
                 dtype=self.dtype,
                 tlut=self.tlut,

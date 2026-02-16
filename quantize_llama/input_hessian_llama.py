@@ -34,7 +34,7 @@ parser.add_argument('--sample_proc', default=32, type=int)
 
 parser.add_argument('--aquant', default=None, type=str)
 parser.add_argument('--group_size', default=128, type=int)
-parser.add_argument('--skip_hadamard', action='store_true')
+parser.add_argument('--hadamard_size', default=None, type=int)
 
 
 def main(args):
@@ -88,13 +88,13 @@ def main(args):
             layer = layer.cuda()
             save_pfx = f'/dev/shm/{transformer_layer_index}'
             done_qkv = utils.register_input_H_hook(layer.self_attn.q_proj,
-                                                   f'{save_pfx}_qkv', gpu_id, args.aquant, args.group_size, args.skip_hadamard)
+                                                   f'{save_pfx}_qkv', gpu_id, args.aquant, args.group_size, args.hadamard_size)
             done_o = utils.register_input_H_hook(layer.self_attn.o_proj,
-                                                 f'{save_pfx}_o', gpu_id, args.aquant, args.group_size, args.skip_hadamard)
+                                                 f'{save_pfx}_o', gpu_id, args.aquant, args.group_size, args.hadamard_size)
             done_up = utils.register_input_H_hook(layer.mlp.up_proj,
-                                                  f'{save_pfx}_up', gpu_id, args.aquant, args.group_size, args.skip_hadamard)
+                                                  f'{save_pfx}_up', gpu_id, args.aquant, args.group_size, args.hadamard_size)
             done_down = utils.register_input_H_hook(layer.mlp.down_proj,
-                                                    f'{save_pfx}_down', gpu_id, args.aquant, args.group_size, args.skip_hadamard)
+                                                    f'{save_pfx}_down', gpu_id, args.aquant, args.group_size, args.hadamard_size)
             # Only use tqdm for inner loop if rank == 0
             if gpu_id == 0:
                 inner_iter = trange(len(dev_emb), leave=False, desc='Layer forward pass')
@@ -178,6 +178,8 @@ if __name__ == "__main__":
     #mp.set_start_method('spawn')
     torch.set_grad_enabled(False)
     args = parser.parse_args()
+    if args.hadamard_size is None:
+        args.hadamard_size = args.group_size
     os.makedirs(args.save_path, exist_ok=True)
 
     dist.init_process_group(backend="nccl")

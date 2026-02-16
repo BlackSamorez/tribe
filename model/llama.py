@@ -310,7 +310,7 @@ class LlamaMLP(nn.Module):
         V = config.quip_params['V']
         tlut_bits = config.quip_params['tlut_bits']
         group_size = config.quip_params['group_size']
-        skip_hadamard = config.quip_params['skip_hadamard']
+        hadamard_size = config.quip_params['hadamard_size']
         decode_mode = config.quip_params['decode_mode']
         aquant = config.quip_params.get('aquant', None)
 
@@ -328,7 +328,7 @@ class LlamaMLP(nn.Module):
                                              tlut_bits,
                                              decode_mode,
                                              group_size=group_size,
-                                             skip_hadamard=skip_hadamard,
+                                             hadamard_size=hadamard_size,
                                              aquant=aquant,
                                              dtype=config.torch_dtype,
                                              bias=False)
@@ -349,7 +349,7 @@ class LlamaMLP(nn.Module):
                                            tlut_bits,
                                            decode_mode,
                                            group_size=group_size,
-                                           skip_hadamard=skip_hadamard,
+                                           hadamard_size=hadamard_size,
                                            aquant=aquant,
                                            dtype=config.torch_dtype,
                                            bias=False)
@@ -370,7 +370,7 @@ class LlamaMLP(nn.Module):
                                              tlut_bits,
                                              decode_mode,
                                              group_size=group_size,
-                                             skip_hadamard=skip_hadamard,
+                                             hadamard_size=hadamard_size,
                                              aquant=aquant,
                                              dtype=config.torch_dtype,
                                              bias=False)
@@ -463,7 +463,7 @@ class LlamaAttention(nn.Module):
         tlut_bits = config.quip_params['tlut_bits']
         decode_mode = config.quip_params['decode_mode']
         group_size = config.quip_params['group_size']
-        skip_hadamard = config.quip_params['skip_hadamard']
+        hadamard_size = config.quip_params['hadamard_size']
         aquant = config.quip_params.get('aquant', None)
 
         if config.quip_params.get('skip_list', None) is None:
@@ -481,7 +481,7 @@ class LlamaAttention(nn.Module):
                                           tlut_bits,
                                           decode_mode,
                                           group_size=group_size,
-                                          skip_hadamard=skip_hadamard,
+                                          hadamard_size=hadamard_size,
                                           aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
@@ -502,7 +502,7 @@ class LlamaAttention(nn.Module):
                                           tlut_bits,
                                           decode_mode,
                                           group_size=group_size,
-                                          skip_hadamard=skip_hadamard,
+                                          hadamard_size=hadamard_size,
                                           aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
@@ -523,7 +523,7 @@ class LlamaAttention(nn.Module):
                                           tlut_bits,
                                           decode_mode,
                                           group_size=group_size,
-                                          skip_hadamard=skip_hadamard,
+                                          hadamard_size=hadamard_size,
                                           aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
@@ -544,7 +544,7 @@ class LlamaAttention(nn.Module):
                                           tlut_bits,
                                           decode_mode,
                                           group_size=group_size,
-                                          skip_hadamard=skip_hadamard,
+                                          hadamard_size=hadamard_size,
                                           aquant=aquant,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)

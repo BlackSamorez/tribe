@@ -10,7 +10,7 @@ from torch import nn
 from lib.codebook import kdict
 from lib.utils.kernel_check import has_kernel
 from lib.utils.kernel_decompress import decode_compressed
-from lib.utils.matmul_had import grouped_hadamard
+from lib.aquant.fp import quantize_activations
 
 
 def decode_1mad(x):
@@ -467,33 +467,7 @@ class BitshiftLinear(nn.Module):
 
         bs = x.shape[0]
 
-        x = grouped_hadamard(x, self.group_size, self.skip_hadamard)
-        
-        if self.aquant is None:
-            pass
-        elif self.aquant == 'fp8':
-            x = x.reshape(-1, self.group_size)
-            x_scales = x.abs().max(dim=-1, keepdim=True).values
-            x /= x_scales
-            x = x.to(torch.float8_e4m3fn).float()
-            x *= x_scales
-            x = x.reshape(-1, n)
-        elif self.aquant == 'fp4_absmax':
-            x = x.reshape(-1, self.group_size)
-            x_scales = x.abs().max(dim=-1, keepdim=True).values / FP4_LEVELS.max()
-            x /= x_scales
-            x = rtn_fp4(x)
-            x *= x_scales
-            x = x.reshape(-1, n)
-        elif self.aquant == 'fp4_quest':
-            x = x.reshape(-1, self.group_size)
-            x_scales = x.pow(2).mean(dim=-1, keepdim=True).sqrt()
-            x /= x_scales
-            x = rtn_fp4(x)
-            x *= x_scales
-            x = x.reshape(-1, n)
-        else:
-            raise ValueError(f"Invalid aquant: {self.aquant}")
+        x = quantize_activations(x, self.aquant, self.group_size, self.skip_hadamard)
 
         if mode == 'train-fixW':
             x = x.to(self.internal_dtype) @ self.hatW.T

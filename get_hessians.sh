@@ -1,0 +1,1 @@
+torchrun --nproc_per_node=8 --nnodes=1 -m quantize_llama.input_hessian_llama --base_model meta-llama/Llama-3.1-8B --save_path ~/hessians/Llama-3.1-8B-multihess --sample_proc 1 --batch_size 16

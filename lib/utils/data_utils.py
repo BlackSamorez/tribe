@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from lib import codebook
+from lib.aquant.fp import quantize_activations
 
 from .matmul_had import matmul_hadU
 from .misc import clean
@@ -26,24 +27,36 @@ def sym_to_flat(A):
     return A[idxs.unbind()]
 
 
-def register_input_H_hook(module, save_pfx, device):
+def register_input_H_hook(module, save_pfx, device, aquant, group_size, skip_hadamard):
     n = module.in_features
     H = torch.zeros(n, n, dtype=torch.float32, device=device)
+    Hhat = torch.zeros(n, n, dtype=torch.float32, device=device)
+    hatHhat = torch.zeros(n, n, dtype=torch.float32, device=device)
     ct = 0
 
     def H_hook(module, x):
-        nonlocal H, ct, n
-        x = x[0].reshape(-1, n).to(torch.float32)
+        nonlocal H, Hhat, hatHhat, ct, n, aquant, group_size, skip_hadamard
+        x = x[0].reshape(-1, n)
+        xq = quantize_activations(x, aquant, group_size, skip_hadamard).to(torch.float32)
+        x = x.to(torch.float32)
+        
         H.addmm_(x.T, x)
+        Hhat.addmm_(x.T, xq)
+        hatHhat.addmm_(xq.T, xq)
+        
         ct += len(x)
 
     hook = module.register_forward_pre_hook(H_hook)
 
     def done():
-        nonlocal H, ct, hook
+        nonlocal H, Hhat, hatHhat, ct, hook, aquant, group_size, skip_hadamard
         save_path = f"{save_pfx}_{device}.pt"
-        torch.save({'H': H, 'n': H.shape[0], 'ct': ct}, save_path)
-        del H, ct
+        torch.save({
+            'H': H, 'Hhat': Hhat, 'hatHhat': hatHhat,
+            'n': H.shape[0], 'ct': ct,
+            'aquant': aquant, 'group_size': group_size, 'skip_hadamard': skip_hadamard,
+        }, save_path)
+        del H, Hhat, hatHhat, ct
         hook.remove()
         del hook
         clean()

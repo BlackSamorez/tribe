@@ -21,7 +21,7 @@ parser.add_argument('--hf_path', default='hfized/quantized_hada_70b', type=str)
 parser.add_argument('--seqlen', default=4096, type=int)
 parser.add_argument('--manifest', action='store_true')
 parser.add_argument('--max_mem_ratio', default=0.7, type=float)
-parser.add_argument('--overwrite_aquant', default=None, type=str, choices=[None, 'fp4_absmax', 'fp4_quest', 'fp8', 'nvfp4'])
+parser.add_argument('--overwrite_aquant', default=None, type=str, choices=['bf16', 'fp4_absmax', 'fp4_quest', 'fp8', 'nvfp4'])
 
 
 def main(args):

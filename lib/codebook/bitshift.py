@@ -414,7 +414,7 @@ class BitshiftLinear(nn.Module):
                  decode_mode,
                  group_size,
                  hadamard_size,
-                 aquant=None,
+                 aquant='bf16',
                  dtype=torch.float16,
                  tlut=None,
                  has_kernel=False):

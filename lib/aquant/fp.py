@@ -42,7 +42,7 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
     orig_shape = x.shape
     x = grouped_hadamard(x, hadamard_size)
         
-    if aquant is None:
+    if aquant == 'bf16':
         return x
     elif aquant == 'fp8':
         x = x.reshape(-1, group_size)

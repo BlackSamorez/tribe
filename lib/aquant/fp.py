@@ -45,15 +45,25 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
     if aquant == 'bf16':
         return x
     elif aquant == 'fp8':
+        if x.isnan().any():
+            print(x)
+            raise Exception("A")
         x = x.reshape(-1, group_size)
         x_scales = x.abs().max(dim=-1, keepdim=True).values / 447.99
+        x_scales[x_scales == 0.0] = 1.0
         x /= x_scales
         x = x.to(torch.float8_e4m3fn).float()
         x *= x_scales
+        
+        if x.isnan().any():
+            print(x)
+            raise Exception("B")
+        
         return x.reshape(orig_shape)
     elif aquant == 'fp4_absmax':
         x = x.reshape(-1, group_size)
         x_scales = x.abs().max(dim=-1, keepdim=True).values / FP4_LEVELS.max()
+        x_scales[x_scales == 0.0] = 1.0
         x /= x_scales
         x = rtn_fp4(x)
         x *= x_scales
@@ -61,6 +71,7 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
     elif aquant == 'fp4_quest':
         x = x.reshape(-1, group_size)
         x_scales = x.pow(2).mean(dim=-1, keepdim=True).sqrt()
+        x_scales[x_scales == 0.0] = 1.0
         x /= x_scales
         x *= (6.0 / 2.92247856) # MSE-optimal clipping
         x = rtn_fp4(x)

@@ -46,7 +46,7 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
         return x
     elif aquant == 'fp8':
         x = x.reshape(-1, group_size)
-        x_scales = x.abs().max(dim=-1, keepdim=True).values
+        x_scales = x.abs().max(dim=-1, keepdim=True).values / 447.99
         x /= x_scales
         x = x.to(torch.float8_e4m3fn).float()
         x *= x_scales

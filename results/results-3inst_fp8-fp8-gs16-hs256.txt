@@ -1,0 +1,7 @@
+Bit,Dataset,PPL
+2,wikitext2,nan
+2,c4,nan
+3,wikitext2,nan
+3,c4,nan
+4,wikitext2,nan
+4,c4,nan

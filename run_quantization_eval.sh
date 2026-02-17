@@ -15,7 +15,7 @@ else
     EXTRA_APPENDIX=-w${EXTRA_WSCALING_SCHEME}
 fi
 
-RESULTS_FILE="results-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}.txt"
+RESULTS_FILE="results/results-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}.txt"
 echo "Bit,Dataset,PPL" > $RESULTS_FILE
 
 # Function to run full pipeline for a given bit width

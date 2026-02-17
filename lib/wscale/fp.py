@@ -23,5 +23,4 @@ def scale_weight(
         raise ValueError(f"Unknown extra_scaling_scheme: {extra_scaling_scheme}")
 
     Wscale = Wscale / (codebook_std * scale_override)
-    Wr = (Wr.reshape(-1, group_size) / Wscale).reshape_as(Wr)    
-    return Wr, Wscale
+    return (Wr.reshape(-1, group_size) / Wscale).reshape_as(Wr), Wscale

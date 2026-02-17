@@ -1,53 +1,73 @@
 #!/bin/bash
 
 # Create results file
+AUTHOR=meta-llama
+MODEL=Llama-3.1-8B
 DECODE_MODE="3inst_fp4"
 AQUANT="nvfp4"
 GROUP_SIZE="16"
 HADAMARD_SIZE="128"
-EXTRA_WSCALING_SCHEME="nvfp4"
-RESULTS_FILE="results_${DECODE_MODE}_${AQUANT}_gs${GROUP_SIZE}_hs${HADAMARD_SIZE}_w${EXTRA_WSCALING_SCHEME}.txt"
+EXTRA_WSCALING_SCHEME="None"
+
+if [ "$EXTRA_WSCALING_SCHEME" == "None" ]; then
+    EXTRA_APPENDIX=""
+else
+    EXTRA_APPENDIX=-w${EXTRA_WSCALING_SCHEME}
+fi
+
+RESULTS_FILE="results-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}.txt"
 echo "Bit,Dataset,PPL" > $RESULTS_FILE
 
 # Function to run full pipeline for a given bit width
 run_pipeline() {
     local bits=$1
     echo "Running pipeline for ${bits}-bit quantization..."
+
+    local HESSIANS_PATH=~/hessians/${MODEL}
+    local TORCH_CKPT=~/models/QTIP/${MODEL}-${bits}bit-${DECODE_MODE}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}
+    local HF_CKPT=~/models/QTIP/${MODEL}-${bits}bit-${DECODE_MODE}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}-hf
     
-    # Step 1: Quantize
-    echo "Step 1: Quantizing model to ${bits}-bit..."
-    python -m quantize_llama.quantize_finetune_llama \
-        --base_model meta-llama/Llama-3.1-8B \
-        --in_hess_path ~/hessians/Llama-3.1-8B \
-        --save_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}-w${EXTRA_WSCALING_SCHEME} \
-        --group_size $GROUP_SIZE \
-        --hadamard_size $HADAMARD_SIZE \
-        --extra_wscaling_scheme $EXTRA_WSCALING_SCHEME \
-        --aquant $AQUANT \
-        --L 16 --K $bits --V 1 --tlut_bits 0 --decode_mode $DECODE_MODE \
-        --ft_epochs 0
-    
-    if [ $? -ne 0 ]; then
-        echo "Error: Quantization failed for ${bits}-bit"
-        return 1
-    fi
-    
-    # Step 2: Convert to HF format
-    echo "Step 2: Converting to HuggingFace format..."
-    python -m quantize_llama.hfize_llama \
-        --quantized_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}-w${EXTRA_WSCALING_SCHEME} \
-        --hf_output_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}-w${EXTRA_WSCALING_SCHEME}-hf
-    
-    if [ $? -ne 0 ]; then
-        echo "Error: HF conversion failed for ${bits}-bit"
-        return 1
+    # Only do steps 1 and 2 if $HF_CKPT dir does not exist
+    if [ ! -d "$HF_CKPT" ]; then
+        # Step 1: Quantize
+        echo "HF path ${HF_CKPT} does not exist. Re-quantizing..."
+
+        echo "Step 1: Quantizing model to ${bits}-bit..."
+        python -m quantize_llama.quantize_finetune_llama \
+            --base_model ${AUTHOR}/${MODEL} \
+            --in_hess_path $HESSIANS_PATH \
+            --save_path $TORCH_CKPT \
+            --group_size $GROUP_SIZE \
+            --hadamard_size $HADAMARD_SIZE \
+            --extra_wscaling_scheme $EXTRA_WSCALING_SCHEME \
+            --L 16 --K $bits --V 1 --tlut_bits 0 --decode_mode $DECODE_MODE \
+            --ft_epochs 0
+        
+        if [ $? -ne 0 ]; then
+            echo "Error: Quantization failed for ${bits}-bit"
+            return 1
+        fi
+        
+        # Step 2: Convert to HF format
+        echo "Step 2: Converting to HuggingFace format..."
+        python -m quantize_llama.hfize_llama \
+            --quantized_path $TORCH_CKPT \
+            --hf_output_path $HF_CKPT
+        
+        if [ $? -ne 0 ]; then
+            echo "Error: HF conversion failed for ${bits}-bit"
+            return 1
+        fi
+    else
+        echo "HF checkpoint at $HF_CKPT exists, skipping quantization and conversion steps."
     fi
     
     # Step 3: Evaluate and capture results
     echo "Step 3: Evaluating perplexity..."
     eval_output=$(python -m eval.eval_ppl \
-        --hf_path ~/models/QTIP/Llama-3.1-8B-${bits}bit-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}-w${EXTRA_WSCALING_SCHEME}-hf \
-        --manifest 2>&1)
+        --hf_path $HF_CKPT \
+        --overwrite_aquant $AQUANT \
+        --manifest)
     
     if [ $? -ne 0 ]; then
         echo "Error: Evaluation failed for ${bits}-bit"

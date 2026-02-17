@@ -14,6 +14,7 @@ from transformers import AutoModelForCausalLM
 
 from lib import codebook, utils
 from lib.linear import QuantizedLinear
+from lib.wscale.fp import scale_weight
 
 from . import ldlq
 
@@ -142,6 +143,8 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             cb.lut.to(torch.float64).square().mean().sqrt().float() *
             args.scale_override)
         Wr = (Wr.reshape(-1, group_size) / Wscale).reshape_as(Wr)
+
+        Wr, Wscale = scale_weight(Wr, group_size=group_size, codebook_std=cb.lut.to(torch.float64).square().mean().sqrt().float(), scale_override=args.scale_override, extra_scaling_scheme=args.extra_wscaling_scheme)
 
         LRr, _ = utils.block_LDL(HRr, args.td_y)
         diag = torch.arange(n, device=LRr.device)

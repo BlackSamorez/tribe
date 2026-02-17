@@ -65,6 +65,19 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
         x = rtn_fp4(x)
         x *= x_scales
         x = x.reshape(orig_shape)
+    elif aquant == "nvfp4":
+        assert group_size == 16
+        x_grouped = x.view(-1, 16)
+        scales = x_grouped.abs().max(dim=-1, keepdim=True)[0]
+
+        s_dec = scales.max() / (447.99 * 6.0)
+        s_dec[s_dec == 0] = 1.0
+        s_dec_b = scales / 6.0
+        s_dec_b_e4m3 = (s_dec_b / s_dec).to(torch.float8_e4m3fn).float()
+        s_dec_b_e4m3[s_dec_b_e4m3 == 0] = 1.0
+        s_enc_b_inv = s_dec_b_e4m3 * s_dec
+        x = rtn_fp4(x_grouped / s_enc_b_inv) * s_enc_b_inv
+        x = x.reshape(orig_shape)
     else:
         raise ValueError(f"Invalid aquant: {aquant}")
 

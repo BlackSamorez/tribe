@@ -2,12 +2,12 @@
 
 # Create results file
 AUTHOR=meta-llama
-MODEL=Llama-3.1-8B
+MODEL=Llama-3.2-1B
 DECODE_MODE="3inst_fp4"
-AQUANT="bf16"
+AQUANT="fp4_absmax"
 GROUP_SIZE="16"
 HADAMARD_SIZE="128"
-EXTRA_WSCALING_SCHEME="nvfp4"
+EXTRA_WSCALING_SCHEME="None"
 
 if [ "$EXTRA_WSCALING_SCHEME" == "None" ]; then
     EXTRA_APPENDIX=""
@@ -15,7 +15,7 @@ else
     EXTRA_APPENDIX=-w${EXTRA_WSCALING_SCHEME}
 fi
 
-RESULTS_FILE="results/results-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}.txt"
+RESULTS_FILE="results/${MODEL}-${DECODE_MODE}-${AQUANT}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}.txt"
 echo "Bit,Dataset,PPL" > $RESULTS_FILE
 
 # Function to run full pipeline for a given bit width
@@ -23,7 +23,7 @@ run_pipeline() {
     local bits=$1
     echo "Running pipeline for ${bits}-bit quantization..."
 
-    local HESSIANS_PATH=~/hessians/${MODEL}
+    local HESSIANS_PATH=~/hessians/${MODEL}-multihess
     local TORCH_CKPT=~/models/QTIP/${MODEL}-${bits}bit-${DECODE_MODE}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}
     local HF_CKPT=~/models/QTIP/${MODEL}-${bits}bit-${DECODE_MODE}-gs${GROUP_SIZE}-hs${HADAMARD_SIZE}${EXTRA_APPENDIX}-hf
     

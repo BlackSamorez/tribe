@@ -138,11 +138,6 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             ).permute(2, 3, 0, 1),
             hadamard_size,
         ).permute(2, 3, 0, 1).reshape_as(HR)
-        
-        Wscale = Wr.reshape(-1, group_size).square().mean(dim=-1, keepdim=True).sqrt() / (
-            cb.lut.to(torch.float64).square().mean().sqrt().float() *
-            args.scale_override)
-        Wr = (Wr.reshape(-1, group_size) / Wscale).reshape_as(Wr)
 
         Wr, Wscale = scale_weight(Wr, group_size=group_size, codebook_std=cb.lut.to(torch.float64).square().mean().sqrt().float(), scale_override=args.scale_override, extra_scaling_scheme=args.extra_wscaling_scheme)
 

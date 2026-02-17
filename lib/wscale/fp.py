@@ -12,7 +12,7 @@ def scale_weight(
     scale_override: float,
     extra_scaling_scheme: Optional[str],
 ) -> [torch.Tensor, torch.Tensor]:
-    if extra_scaling_scheme is None:
+    if extra_scaling_scheme == "no":
         Wscale = Wr.reshape(-1, group_size).square().mean(dim=-1, keepdim=True).sqrt()
     elif extra_scaling_scheme == "nvfp4":
         assert group_size == 16        

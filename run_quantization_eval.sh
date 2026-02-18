@@ -2,9 +2,9 @@
 
 # Create results file
 AUTHOR=meta-llama
-MODEL=Llama-3.2-1B
-DECODE_MODE="3inst_fp8"
-AQUANT="fp8"
+MODEL=Llama-3.2-3B
+DECODE_MODE="3inst_fp4"
+AQUANT="nvfp4"
 GROUP_SIZE="16"
 HADAMARD_SIZE="128"
 EXTRA_WSCALING_SCHEME="no"

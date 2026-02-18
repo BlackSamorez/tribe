@@ -93,5 +93,37 @@ def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard
             torch.clamp(x / s_enc_b_inv, -5.99, 5.99)
         ) * s_enc_b_inv
         return x.reshape(orig_shape)
+    elif aquant == "46":
+        assert group_size == 16
+        x = x.view(-1, 16)
+        
+        scales = x.abs().max(dim=-1, keepdim=True)[0]
+        s_dec = scales.max() / (256.00 * 6.0)
+        s_dec[s_dec == 0] = 1.0
+        
+        s_dec_b_6 = scales / 6.0
+        s_dec_b_e4m3_6 = (s_dec_b_6 / s_dec).to(torch.float8_e4m3fn).float()
+        s_dec_b_e4m3_6[s_dec_b_e4m3_6 == 0] = 1.0
+        s_enc_b_inv_6 = s_dec_b_e4m3_6 * s_dec
+        x_6 = rtn_fp4(
+            torch.clamp(x / s_enc_b_inv_6, -5.99, 5.99)
+        ) * s_enc_b_inv_6
+        err_6 = (x - x_6).pow(2).mean(dim=-1, keepdim=True)
+        
+        s_dec_b_4 = scales / 4.0
+        s_dec_b_e4m3_4 = (s_dec_b_4 / s_dec).to(torch.float8_e4m3fn).float()
+        s_dec_b_e4m3_4[s_dec_b_e4m3_4 == 0] = 1.0
+        s_enc_b_inv_4 = s_dec_b_e4m3_4 * s_dec
+        x_4 = rtn_fp4(
+            torch.clamp(x / s_enc_b_inv_4, -5.99, 5.99)
+        ) * s_enc_b_inv_4
+        err_4 = (x - x_4).pow(2).mean(dim=-1, keepdim=True)
+        
+        x = torch.where(
+            err_6 <= err_4,
+            x_6,
+            x_4,
+        )
+        return x.reshape(orig_shape)
     else:
         raise ValueError(f"Invalid aquant: {aquant}")

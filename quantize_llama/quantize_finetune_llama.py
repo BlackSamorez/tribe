@@ -54,7 +54,7 @@ parser.add_argument('--ft_train_lut', action='store_true')
 parser.add_argument('--skip_list', default=None, type=str)
 parser.add_argument('--group_size', default=128, type=int)
 parser.add_argument('--hadamard_size', default=None, type=int)
-parser.add_argument('--aquant', default='bf16', type=str, choices=['bf16', 'fp8', 'fp4_quest', 'fp4_absmax', 'nvfp4'])
+parser.add_argument('--aquant', default='bf16', type=str, choices=['bf16', 'fp8', 'fp4_quest', 'fp4_absmax', 'nvfp4', '46'])
 parser.add_argument('--extra_wscaling_scheme', default='no', type=str, choices=['no', 'nvfp4'])
 
 

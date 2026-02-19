@@ -312,7 +312,7 @@ class LlamaMLP(nn.Module):
         group_size = config.quip_params['group_size']
         hadamard_size = config.quip_params['hadamard_size']
         decode_mode = config.quip_params['decode_mode']
-        aquant = config.quip_params.get('aquant', None)
+        aquant = config.quip_params.get('aquant', 'bf16')
         xvsh = config.quip_params.get('wush', False)
 
         if config.quip_params.get('skip_list', None) is None:
@@ -353,6 +353,7 @@ class LlamaMLP(nn.Module):
                                            group_size=group_size,
                                            hadamard_size=hadamard_size,
                                            aquant=aquant,
+                                           xvsh=xvsh,
                                            dtype=config.torch_dtype,
                                            bias=False)
         else:
@@ -374,6 +375,7 @@ class LlamaMLP(nn.Module):
                                              group_size=group_size,
                                              hadamard_size=hadamard_size,
                                              aquant=aquant,
+                                             xvsh=xvsh,
                                              dtype=config.torch_dtype,
                                              bias=False)
         else:
@@ -466,7 +468,8 @@ class LlamaAttention(nn.Module):
         decode_mode = config.quip_params['decode_mode']
         group_size = config.quip_params['group_size']
         hadamard_size = config.quip_params['hadamard_size']
-        aquant = config.quip_params.get('aquant', None)
+        aquant = config.quip_params.get('aquant', 'bf16')
+        xvsh = config.quip_params.get('wush', False)
 
         if config.quip_params.get('skip_list', None) is None:
             config.quip_params['skip_list'] = []
@@ -485,6 +488,7 @@ class LlamaAttention(nn.Module):
                                           group_size=group_size,
                                           hadamard_size=hadamard_size,
                                           aquant=aquant,
+                                          xvsh=xvsh,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -506,6 +510,7 @@ class LlamaAttention(nn.Module):
                                           group_size=group_size,
                                           hadamard_size=hadamard_size,
                                           aquant=aquant,
+                                          xvsh=xvsh,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -527,6 +532,7 @@ class LlamaAttention(nn.Module):
                                           group_size=group_size,
                                           hadamard_size=hadamard_size,
                                           aquant=aquant,
+                                          xvsh=xvsh,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:
@@ -548,6 +554,7 @@ class LlamaAttention(nn.Module):
                                           group_size=group_size,
                                           hadamard_size=hadamard_size,
                                           aquant=aquant,
+                                          xvsh=xvsh,
                                           dtype=config.torch_dtype,
                                           bias=config.attention_bias)
         else:

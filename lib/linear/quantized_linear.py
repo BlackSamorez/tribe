@@ -27,7 +27,7 @@ class QuantizedLinear(nn.Module):
         group_size=128,
         hadamard_size=None,
         xvsh=False,
-        aquant=None,
+        aquant='bf16',
         dtype=torch.float16,
         mode='eval',
         grad_ckpt=False,
@@ -68,7 +68,7 @@ class QuantizedLinear(nn.Module):
         if xvsh:
             self.xvsh = nn.Parameter(torch.empty(
                 (in_features//hadamard_size, hadamard_size, hadamard_size),
-                dtype=dtype,
+                dtype=torch.bfloat16,
                 requires_grad=False,
             ))
         else:

@@ -72,6 +72,6 @@ def get_xvsh_wush(
     assert T_xvsh.shape == T_wush.shape
     assert T_wush.shape == (in_dim // hadamard_size, hadamard_size, hadamard_size)
     
-    # return T_xvsh, T_wush
+    return T_xvsh, T_wush
     
-    return h, h
+    # return h, h

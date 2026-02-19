@@ -144,7 +144,7 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             
             Wr = apply_wush(Wr, wush)
             HRr = apply_wush(apply_wush(HRr, xvsh).T, xvsh).T
-            # HRr = utils.regularize_H(HRr, args.sigma_reg // 10)
+            HRr = utils.regularize_H(HRr, args.sigma_reg)
         else:
             xvsh = None
             Wr = utils.grouped_hadamard(W.to(device), hadamard_size)

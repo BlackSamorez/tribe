@@ -19,6 +19,9 @@ def get_xvsh_wush(
     ignore_weight: bool=False,
     eps: float=1e-8,
 ) -> [torch.Tensor, torch.Tensor]:
+    weight = weight.float()
+    hessian = hessian.float()
+    
     weight = weight.T
     (in_dim, out_dim) = weight.shape
     assert hessian.shape == (in_dim, in_dim)
@@ -61,7 +64,7 @@ def get_xvsh_wush(
         w_prime.permute(0, 2, 1),
     )
     
-    h = get_hadamard_matrix(hadamard_size, weight.dtype, weight.device)[None, ...].repeat(in_dim // hadamard_size, 1, 1)
+    h = get_hadamard_matrix(hadamard_size, torch.float32, weight.device)[None, ...].repeat(in_dim // hadamard_size, 1, 1)
     
     T_xvsh = torch.bmm(h, T_xvs)
     T_wush = torch.bmm(h, T_wus)

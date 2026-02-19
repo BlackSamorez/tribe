@@ -312,7 +312,7 @@ def unpack_quip(module, saved_layer):
         module.tlut.copy_(saved_layer['tlut'].float().to(torch.float16))
     
     if module.xvsh is not None:
-        module.xvsh.copy_(saved_layer['xvsh'].to(torch.bfloat16))
+        module.xvsh.copy_(saved_layer['xvsh'].to(torch.float32))
 
     module.scales.copy_(saved_layer['Wscale'].float())
 

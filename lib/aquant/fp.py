@@ -48,9 +48,9 @@ def apply_wush(
     
     return torch.einsum(
         '... g i, g j i -> ... g j',
-        x.reshape(-1, n_groups, wush_size),
+        x.reshape(-1, n_groups, wush_size).float(),
         wush,
-    ).reshape_as(x)
+    ).reshape_as(x).to(x.dtype)
 
 
 @torch.compile

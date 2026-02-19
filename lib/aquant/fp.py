@@ -90,7 +90,7 @@ def quantize_activations(
         x_scales = x.abs().max(dim=-1, keepdim=True).values / FP4_LEVELS.max()
         x_scales[x_scales == 0.0] = 1.0
         x /= x_scales
-        x = rtn_fp4(x)
+        x = rtn_fp4(x).to(x.dtype)
         x *= x_scales
         return x.reshape(orig_shape)
     elif aquant == 'fp4_quest':
@@ -99,7 +99,7 @@ def quantize_activations(
         x_scales[x_scales == 0.0] = 1.0
         x /= x_scales
         x *= (6.0 / 2.92247856) # MSE-optimal clipping
-        x = rtn_fp4(x)
+        x = rtn_fp4(x).to(x.dtype)
         x *= x_scales
         return x.reshape(orig_shape)
     elif aquant == "nvfp4":
@@ -114,9 +114,9 @@ def quantize_activations(
         s_dec_b_e4m3[s_dec_b_e4m3 == 0] = 1.0
         s_enc_b_inv = s_dec_b_e4m3 * s_dec
         
-        x = rtn_fp4(
+        x = (rtn_fp4(
             torch.clamp(x / s_enc_b_inv, -5.99, 5.99)
-        ) * s_enc_b_inv
+        ) * s_enc_b_inv).to(x.dtype)
         return x.reshape(orig_shape)
     elif aquant == "46":
         assert group_size == 16
@@ -148,7 +148,7 @@ def quantize_activations(
             err_6 <= err_4,
             x_6,
             x_4,
-        )
+        ).to(x.dtype)
         return x.reshape(orig_shape)
     else:
         raise ValueError(f"Invalid aquant: {aquant}")

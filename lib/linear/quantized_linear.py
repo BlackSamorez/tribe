@@ -7,6 +7,7 @@ import torch.nn as nn
 
 from lib.codebook import bitshift
 from lib.utils import (clean, has_kernel)
+from lib.aquant.fp import quantize_activations
 
 
 class QuantizedLinear(nn.Module):
@@ -25,6 +26,7 @@ class QuantizedLinear(nn.Module):
         bias=False,
         group_size=128,
         hadamard_size=None,
+        xvsh=False,
         aquant=None,
         dtype=torch.float16,
         mode='eval',
@@ -62,6 +64,15 @@ class QuantizedLinear(nn.Module):
                                      requires_grad=False)
         else:
             self.tlut = None
+        
+        if xvsh:
+            self.xvsh = nn.Parameter(torch.empty(
+                (in_features//hadamard_size, hadamard_size, hadamard_size),
+                dtype=dtype,
+                requires_grad=False,
+            ))
+        else:
+            self.xvsh = None
 
         if bias:
             self.register_buffer('bias', torch.ones(out_features))
@@ -98,8 +109,6 @@ class QuantizedLinear(nn.Module):
                 self.tlut_bits,
                 self.decode_mode,
                 self.group_size,
-                self.hadamard_size,
-                aquant=self.aquant,
                 dtype=self.dtype,
                 tlut=self.tlut,
                 has_kernel=self.has_kernel)
@@ -131,6 +140,13 @@ class QuantizedLinear(nn.Module):
         #     f"\tself.in_features: {self.in_features}\n"
         #     f"\tself.mode: {self.mode}\n"
         # )
+        
+        input = quantize_activations(
+            input,
+            self.aquant,
+            self.group_size,
+            self.hadamard_size if self.xvsh is None else self.xvsh,
+        )
         
         result = self.codebook_class(input,
                                      self.trellis,

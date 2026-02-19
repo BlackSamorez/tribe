@@ -10,7 +10,6 @@ from torch import nn
 from lib.codebook import kdict
 from lib.utils.kernel_check import has_kernel
 from lib.utils.kernel_decompress import decode_compressed
-from lib.aquant.fp import quantize_activations
 
 
 def decode_1mad(x):
@@ -413,8 +412,6 @@ class BitshiftLinear(nn.Module):
                  tlut_bits,
                  decode_mode,
                  group_size,
-                 hadamard_size,
-                 aquant='bf16',
                  dtype=torch.float16,
                  tlut=None,
                  has_kernel=False):
@@ -424,8 +421,6 @@ class BitshiftLinear(nn.Module):
         self.V = V
         self.cb = bitshift_codebook(L, K, V, tlut_bits, decode_mode, tlut=tlut)
         self.group_size = group_size
-        self.hadamard_size = hadamard_size
-        self.aquant = aquant
         self.internal_dtype = dtype
         self.has_kernel = False # TODO: add kernel
 
@@ -466,8 +461,6 @@ class BitshiftLinear(nn.Module):
         x = input.view(-1, n).to(torch.float32)
 
         bs = x.shape[0]
-
-        x = quantize_activations(x, self.aquant, self.group_size, self.hadamard_size)
 
         if mode == 'train-fixW':
             x = x.to(self.internal_dtype) @ self.hatW.T

@@ -1,3 +1,5 @@
+from typing import Optional, Union
+
 from lib.utils.matmul_had import grouped_hadamard
 
 import torch
@@ -37,11 +39,34 @@ def rtn_fp4(x):
     return torch.where(pick_hi, g_hi, g_lo)
 
 
+def apply_wush(
+    x: torch.Tensor,
+    wush: torch.Tensor,
+) -> torch.Tensor:
+    n_groups, wush_size, _ = wush.shape
+    assert wush.shape[2] == wush_size
+    
+    return torch.einsum(
+        '... g i, g i j -> ... g j',
+        x.reshape(-1, n_groups, wush_size),
+        wush,
+    ).reshape_as(x)
+
+
 @torch.compile
-def quantize_activations(x: torch.Tensor, aquant: str, group_size: int, hadamard_size: int):
+def quantize_activations(
+    x: torch.Tensor,
+    aquant: str,
+    group_size: int,
+    hadamard_or_xvsh: Union[torch.Tensor, int],
+):
     orig_shape = x.shape
-    x = grouped_hadamard(x, hadamard_size)
-        
+         
+    if isinstance(hadamard_or_xvsh, int):
+        x = grouped_hadamard(x, hadamard_or_xvsh)
+    elif isinstance(hadamard_or_xvsh, torch.Tensor):
+        x = apply_wush(x, hadamard_or_xvsh)
+
     if aquant == 'bf16':
         return x
     elif aquant == 'fp8':

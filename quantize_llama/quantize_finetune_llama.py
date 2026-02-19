@@ -56,6 +56,7 @@ parser.add_argument('--group_size', default=128, type=int)
 parser.add_argument('--hadamard_size', default=None, type=int)
 parser.add_argument('--aquant', default='bf16', type=str, choices=['bf16', 'fp8', 'fp4_quest', 'fp4_absmax', 'nvfp4', '46'])
 parser.add_argument('--extra_wscaling_scheme', default='no', type=str, choices=['no', 'nvfp4'])
+parser.add_argument('--wush', action='store_true')
 
 
 def check_exist(idx, args):
@@ -129,6 +130,7 @@ def main(args):
         'group_size': args.group_size,
         'hadamard_size': args.hadamard_size,
         'aquant': args.aquant,
+        'wush': args.wush,
     }
     all_config['model_config'].update({'quip_params': quip_params})
     torch.save(all_config, os.path.join(args.save_path, 'config.pt'))

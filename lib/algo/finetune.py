@@ -15,6 +15,8 @@ from transformers import AutoModelForCausalLM
 from lib import codebook, utils
 from lib.linear import QuantizedLinear
 from lib.wscale.fp import scale_weight
+from lib.wscale.wush import get_xvsh_wush
+from lib.aquant.fp import apply_wush
 
 from . import ldlq
 
@@ -130,14 +132,29 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
         del H_data
 
         HR = utils.regularize_H(HR, args.sigma_reg)
-
-        Wr = utils.grouped_hadamard(W.to(device), hadamard_size)
-        HRr = utils.grouped_hadamard(
-            utils.grouped_hadamard(
-                HR.to(device).reshape(HR.shape[0] // hadamard_size, hadamard_size, HR.shape[1] // hadamard_size, hadamard_size), hadamard_size
-            ).permute(2, 3, 0, 1),
-            hadamard_size,
-        ).permute(2, 3, 0, 1).reshape_as(HR)
+        
+        if args.wush:
+            Wr = W.to(device)
+            HRr = HR.to(device)
+            
+            xvsh, wush = get_xvsh_wush(
+                Wr, HRr, hadamard_size,
+                ignore_weight=True,
+            )
+            
+            Wr = apply_wush(Wr, wush)
+            HRr = apply_wush(HRr, xvsh)
+            HRr = apply_wush(HRr.T, xvsh).T
+        else:
+            xvsh = None
+            Wr = utils.grouped_hadamard(W.to(device), hadamard_size)
+            HRr = utils.grouped_hadamard(
+                utils.grouped_hadamard(
+                    HR.to(device).reshape(HR.shape[0] // hadamard_size, hadamard_size, HR.shape[1] // hadamard_size, hadamard_size), hadamard_size
+                ).permute(2, 3, 0, 1),
+                hadamard_size,
+            ).permute(2, 3, 0, 1).reshape_as(HR)
+            
 
         Wr, Wscale = scale_weight(Wr, group_size=group_size, codebook_std=cb.lut.to(torch.float64).square().mean().sqrt().float(), scale_override=args.scale_override, extra_scaling_scheme=args.extra_wscaling_scheme)
 
@@ -186,6 +203,7 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
                 'tlut':
                 cb.tlut.data.to(orig_dtype).cpu()
                 if hasattr(cb, 'tlut') else None,
+                'xvsh': xvsh.cpu() if xvsh is not None else None, 
             }, save_path)
 
 
@@ -204,6 +222,8 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             args.decode_mode,
             mode='train-recons' if args.ft_train_lut else 'train-fixW',
             group_size=group_size,
+            hadamard_size=hadamard_size,
+            xvsh=xvsh,
             aquant=args.aquant,
             dtype=orig_dtype,
             grad_ckpt=args.ft_grad_ckpt)
@@ -219,6 +239,9 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
         if q_linear.tlut is not None:
             q_linear.tlut.copy_(cb.tlut.data)
             q_linear.tlut.requires_grad = args.ft_train_lut
+        
+        if q_linear.xvsh is not None:
+            q_linear.xvsh.copy_(xvsh.data)
 
         split_attr = linear_attr.split('.')
         setattr(

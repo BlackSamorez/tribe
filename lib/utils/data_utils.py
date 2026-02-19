@@ -310,6 +310,9 @@ def unpack_quip(module, saved_layer):
     module.trellis.copy_(saved_layer['trellis'])
     if module.tlut is not None:
         module.tlut.copy_(saved_layer['tlut'].float().to(torch.float16))
+    
+    if module.xvsh is not None:
+        module.xvsh.copy_(saved_layer['xvsh'])
 
     module.scales.copy_(saved_layer['Wscale'].float())
 

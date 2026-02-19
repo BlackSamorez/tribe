@@ -16,7 +16,7 @@ from lib import codebook, utils
 from lib.linear import QuantizedLinear
 from lib.wscale.fp import scale_weight
 from lib.wscale.wush import get_xvsh_wush
-from lib.aquant.fp import apply_wush
+from lib.aquant.fp import apply_wush, grouped_hadamard
 
 from . import ldlq
 
@@ -133,27 +133,27 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
 
         HR = utils.regularize_H(HR, args.sigma_reg)
         
-        if args.wush:
+        if args.wush != 'no':
             Wr = W.to(device)
             HRr = HR.to(device)
             
             xvsh, wush = get_xvsh_wush(
                 Wr, HRr, hadamard_size,
-                ignore_weight=True,
+                ignore_weight=(args.wush == "act"),
             )
             
             Wr = apply_wush(Wr, wush)
-            HRr = apply_wush(HRr, xvsh)
-            HRr = apply_wush(HRr.T, xvsh).T
+            HRr = apply_wush(apply_wush(HRr, xvsh).T, xvsh).T
+            # HRr = utils.regularize_H(HRr, args.sigma_reg // 10)
         else:
             xvsh = None
             Wr = utils.grouped_hadamard(W.to(device), hadamard_size)
             HRr = utils.grouped_hadamard(
                 utils.grouped_hadamard(
-                    HR.to(device).reshape(HR.shape[0] // hadamard_size, hadamard_size, HR.shape[1] // hadamard_size, hadamard_size), hadamard_size
-                ).permute(2, 3, 0, 1),
+                    HR.to(device), hadamard_size
+                ).T,
                 hadamard_size,
-            ).permute(2, 3, 0, 1).reshape_as(HR)
+            ).T.reshape_as(HR)
             
 
         Wr, Wscale = scale_weight(Wr, group_size=group_size, codebook_std=cb.lut.to(torch.float64).square().mean().sqrt().float(), scale_override=args.scale_override, extra_scaling_scheme=args.extra_wscaling_scheme)
@@ -223,7 +223,7 @@ def quantize_finetune_decoder_layer(mixed_layer, quant_order, idx, cb, args,
             mode='train-recons' if args.ft_train_lut else 'train-fixW',
             group_size=group_size,
             hadamard_size=hadamard_size,
-            xvsh=xvsh,
+            xvsh=xvsh is not None,
             aquant=args.aquant,
             dtype=orig_dtype,
             grad_ckpt=args.ft_grad_ckpt)

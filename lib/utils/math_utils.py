@@ -18,8 +18,9 @@ def block_LDL(H, b, check_nan=True):
 
     try:
         L = torch.linalg.cholesky(H)
-    except:
-        return None
+    except Exception as e:
+        print(H[:5,:5])
+        raise e
 
     DL = torch.diagonal(L.reshape(m, b, m, b), dim1=0, dim2=2).permute(2, 0, 1)
     D = (DL @ DL.permute(0, 2, 1)).cpu()

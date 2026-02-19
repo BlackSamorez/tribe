@@ -47,7 +47,7 @@ def apply_wush(
     assert wush.shape[2] == wush_size
     
     return torch.einsum(
-        '... g i, g i j -> ... g j',
+        '... g i, g j i -> ... g j',
         x.reshape(-1, n_groups, wush_size),
         wush,
     ).reshape_as(x)

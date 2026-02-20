@@ -1,15 +1,32 @@
+from functools import cache
+
 import torch
 
 from scipy.linalg import hadamard
 
 
-def get_hadamard_matrix(group_size: int, dtype: torch.dtype, device: torch.device, **kwargs):
+@cache
+def get_random_hadamard_matrix(group_size: int, dtype: torch.dtype, device: torch.device, **kwargs):
+    assert group_size <= 128
+    signs = torch.tensor(
+        [ 1, -1,  1, -1,  1,  1,  1,  1,  1,  1, -1, -1,  1,  1,  1,  1, -1, -1,
+         1, -1,  1,  1,  1, -1,  1,  1,  1, -1, -1, -1, -1,  1, -1,  1,  1, -1,
+        -1, -1,  1, -1,  1, -1,  1,  1, -1, -1,  1,  1, -1,  1,  1,  1, -1,  1,
+        -1, -1,  1,  1,  1, -1, -1,  1,  1, -1, -1, -1,  1,  1, -1, -1, -1,  1,
+         1,  1,  1, -1, -1, -1,  1, -1,  1, -1, -1, -1, -1, -1, -1,  1,  1, -1,
+         1, -1,  1, -1,  1,  1, -1,  1,  1,  1,  1, -1, -1,  1, -1,  1,  1, -1,
+        -1, -1, -1,  1,  1, -1,  1,  1, -1,  1, -1, -1,  1,  1, -1,  1,  1, -1,
+        -1,  1],
+        device=device,
+        dtype=dtype,
+    )
+    
     return torch.tensor(
         hadamard(group_size) * group_size**-0.5,
         dtype=dtype,
         device=device,
         requires_grad=False,
-    )
+    ) * signs[None,:group_size]
 
 
 def get_xvsh_wush(
@@ -64,7 +81,7 @@ def get_xvsh_wush(
         w_prime.permute(0, 2, 1),
     )
     
-    h = get_hadamard_matrix(hadamard_size, torch.float32, weight.device)[None, ...].repeat(in_dim // hadamard_size, 1, 1)
+    h = get_random_hadamard_matrix(hadamard_size, torch.float32, weight.device)[None, ...].repeat(in_dim // hadamard_size, 1, 1)
     
     T_xvsh = torch.bmm(h, T_xvs)
     T_wush = torch.bmm(h, T_wus)
@@ -72,6 +89,6 @@ def get_xvsh_wush(
     assert T_xvsh.shape == T_wush.shape
     assert T_wush.shape == (in_dim // hadamard_size, hadamard_size, hadamard_size)
     
-    return T_xvsh, T_wush
+    # return T_xvsh, T_wush
     
-    # return h, h
+    return h, h
